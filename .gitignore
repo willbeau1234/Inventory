@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Flask
+instance/
+.webassets-cache
+
+# Inventory data (exclude from version control)
+inventory_state.json
+uploads/*.pdf
+uploads/*.csv
+
+# Keep uploads folder but ignore contents
+!uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

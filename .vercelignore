@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+uploads/
+*.log
+.DS_Store
+test_setup.py
+start.sh
