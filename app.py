@@ -14,9 +14,17 @@ logging.getLogger('pdfminer').setLevel(logging.ERROR)
 logging.getLogger('pdfplumber').setLevel(logging.ERROR)
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
+
+# Use /tmp for uploads on Vercel (serverless environment)
+# Local development will still use 'uploads' folder
+if os.environ.get('VERCEL'):
+    app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+    app.config['INVENTORY_STATE_FILE'] = '/tmp/inventory_state.json'
+else:
+    app.config['UPLOAD_FOLDER'] = 'uploads'
+    app.config['INVENTORY_STATE_FILE'] = 'inventory_state.json'
+
 app.config['INVENTORY_FOLDER'] = 'inventory'
-app.config['INVENTORY_STATE_FILE'] = 'inventory_state.json'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
