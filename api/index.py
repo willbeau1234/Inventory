@@ -39,6 +39,18 @@ current_inventory = {}  # item_number -> {quantity, unit, description}
 invoice_history = []  # list of processed invoices
 sales_history = []  # list of processed sales
 
+# Track if data is loaded
+_data_loaded = False
+
+def ensure_data_loaded():
+    """Ensure conversion and recipe data is loaded"""
+    global _data_loaded
+    if not _data_loaded:
+        load_conversions()
+        load_recipes()
+        load_inventory_state()
+        _data_loaded = True
+
 def load_conversions():
     """Load conversion table from CSV"""
     global conversions
@@ -208,6 +220,7 @@ def extract_invoice_data(pdf_path):
 
 @app.route('/')
 def index():
+    ensure_data_loaded()
     return render_template('index.html')
 
 def process_invoice_to_inventory(invoice_data):
@@ -254,6 +267,7 @@ def process_invoice_to_inventory(invoice_data):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    ensure_data_loaded()
     if 'files[]' not in request.files:
         return jsonify({'error': 'No files uploaded'}), 400
 
@@ -309,6 +323,7 @@ def upload_file():
 @app.route('/upload_sales', methods=['POST'])
 def upload_sales():
     """Upload and process PAR POS sales data (CSV)"""
+    ensure_data_loaded()
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
 
@@ -445,6 +460,7 @@ def process_starting_inventory(csv_path):
 @app.route('/upload_starting_inventory', methods=['POST'])
 def upload_starting_inventory():
     """Upload and process starting/current inventory CSV"""
+    ensure_data_loaded()
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
 
@@ -469,6 +485,7 @@ def upload_starting_inventory():
 @app.route('/inventory')
 def get_inventory():
     """Get current inventory state"""
+    ensure_data_loaded()
     inventory_list = [
         {
             'item_number': item_number,
@@ -489,6 +506,7 @@ def get_inventory():
 @app.route('/update_inventory', methods=['POST'])
 def update_inventory():
     """Manually update inventory quantity"""
+    ensure_data_loaded()
     data = request.get_json()
     item_number = data.get('item_number')
     new_quantity = data.get('quantity')
@@ -536,16 +554,5 @@ def clear_inventory():
 
     return jsonify({'success': True})
 
-# Load conversion and recipe data on startup
-try:
-    print("Loading conversion and recipe data...")
-    load_conversions()
-    load_recipes()
-    load_inventory_state()
-    print("Startup complete!")
-except Exception as e:
-    print(f"Error during startup: {e}")
-    # Continue anyway - app will work with empty data
-
-# For Vercel serverless
+# For Vercel serverless - data will be lazy-loaded on first request
 handler = app
