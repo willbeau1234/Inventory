@@ -555,4 +555,4 @@ def clear_inventory():
     return jsonify({'success': True})
 
 # For Vercel serverless - data will be lazy-loaded on first request
-handler = app
+# The 'app' variable is automatically used by Vercel's Python runtime
