@@ -27,7 +27,10 @@ else:
 app.config['INVENTORY_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'inventory')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create upload folder: {e}")
 
 # Data structures
 conversions = {}  # item_number -> conversion info
@@ -39,70 +42,82 @@ sales_history = []  # list of processed sales
 def load_conversions():
     """Load conversion table from CSV"""
     global conversions
-    conversion_file = os.path.join(app.config['INVENTORY_FOLDER'], 'DQ inventory - Conversion.csv')
-    if not os.path.exists(conversion_file):
-        print(f"Warning: Conversion file not found at {conversion_file}")
-        return
+    try:
+        conversion_file = os.path.join(app.config['INVENTORY_FOLDER'], 'DQ inventory - Conversion.csv')
+        if not os.path.exists(conversion_file):
+            print(f"Warning: Conversion file not found at {conversion_file}")
+            return
 
-    with open(conversion_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            item_number = row['item_number'].strip()
-            if item_number:
-                conversions[item_number] = {
-                    'description': row['description'].strip(),
-                    'order_unit': row['order_unit'].strip(),
-                    'items_per_case': row['items_per_case'].strip(),
-                    'usable_unit': row['usable_unit'].strip(),
-                    'notes': row.get('notes', '').strip()
-                }
-    print(f"Loaded {len(conversions)} conversion entries")
+        with open(conversion_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                item_number = row['item_number'].strip()
+                if item_number:
+                    conversions[item_number] = {
+                        'description': row['description'].strip(),
+                        'order_unit': row['order_unit'].strip(),
+                        'items_per_case': row['items_per_case'].strip(),
+                        'usable_unit': row['usable_unit'].strip(),
+                        'notes': row.get('notes', '').strip()
+                    }
+        print(f"Loaded {len(conversions)} conversion entries")
+    except Exception as e:
+        print(f"Error loading conversions: {e}")
 
 def load_recipes():
     """Load recipe table from CSV"""
     global recipes
-    recipe_file = os.path.join(app.config['INVENTORY_FOLDER'], 'DQ inventory - Recipe.csv')
-    if not os.path.exists(recipe_file):
-        print(f"Warning: Recipe file not found at {recipe_file}")
-        return
+    try:
+        recipe_file = os.path.join(app.config['INVENTORY_FOLDER'], 'DQ inventory - Recipe.csv')
+        if not os.path.exists(recipe_file):
+            print(f"Warning: Recipe file not found at {recipe_file}")
+            return
 
-    with open(recipe_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            pos_item = row['pos_item_name'].strip()
-            item_number = row['inventory_item_number'].strip()
-            if pos_item and item_number:
-                recipes[pos_item].append({
-                    'item_number': item_number,
-                    'description': row['inventory_description'].strip(),
-                    'quantity_used': float(row['quantity_used']) if row['quantity_used'] else 0,
-                    'unit': row['unit'].strip()
-                })
-    print(f"Loaded recipes for {len(recipes)} POS items")
+        with open(recipe_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                pos_item = row['pos_item_name'].strip()
+                item_number = row['inventory_item_number'].strip()
+                if pos_item and item_number:
+                    recipes[pos_item].append({
+                        'item_number': item_number,
+                        'description': row['inventory_description'].strip(),
+                        'quantity_used': float(row['quantity_used']) if row['quantity_used'] else 0,
+                        'unit': row['unit'].strip()
+                    })
+        print(f"Loaded recipes for {len(recipes)} POS items")
+    except Exception as e:
+        print(f"Error loading recipes: {e}")
 
 def save_inventory_state():
     """Save current inventory state to JSON file"""
-    state = {
-        'inventory': current_inventory,
-        'invoice_history': invoice_history,
-        'sales_history': sales_history,
-        'last_updated': datetime.now().isoformat()
-    }
-    with open(app.config['INVENTORY_STATE_FILE'], 'w') as f:
-        json.dump(state, f, indent=2)
+    try:
+        state = {
+            'inventory': current_inventory,
+            'invoice_history': invoice_history,
+            'sales_history': sales_history,
+            'last_updated': datetime.now().isoformat()
+        }
+        with open(app.config['INVENTORY_STATE_FILE'], 'w') as f:
+            json.dump(state, f, indent=2)
+    except Exception as e:
+        print(f"Error saving inventory state: {e}")
 
 def load_inventory_state():
     """Load inventory state from JSON file"""
     global current_inventory, invoice_history, sales_history
-    if os.path.exists(app.config['INVENTORY_STATE_FILE']):
-        with open(app.config['INVENTORY_STATE_FILE'], 'r') as f:
-            state = json.load(f)
-            current_inventory = state.get('inventory', {})
-            invoice_history = state.get('invoice_history', [])
-            sales_history = state.get('sales_history', [])
-        print(f"Loaded inventory state with {len(current_inventory)} items")
-    else:
-        print("No existing inventory state found, starting fresh")
+    try:
+        if os.path.exists(app.config['INVENTORY_STATE_FILE']):
+            with open(app.config['INVENTORY_STATE_FILE'], 'r') as f:
+                state = json.load(f)
+                current_inventory = state.get('inventory', {})
+                invoice_history = state.get('invoice_history', [])
+                sales_history = state.get('sales_history', [])
+            print(f"Loaded inventory state with {len(current_inventory)} items")
+        else:
+            print("No existing inventory state found, starting fresh")
+    except Exception as e:
+        print(f"Error loading inventory state: {e}")
 
 def extract_invoice_data(pdf_path):
     """Extract data from PDF invoice"""
@@ -522,10 +537,15 @@ def clear_inventory():
     return jsonify({'success': True})
 
 # Load conversion and recipe data on startup
-print("Loading conversion and recipe data...")
-load_conversions()
-load_recipes()
-load_inventory_state()
+try:
+    print("Loading conversion and recipe data...")
+    load_conversions()
+    load_recipes()
+    load_inventory_state()
+    print("Startup complete!")
+except Exception as e:
+    print(f"Error during startup: {e}")
+    # Continue anyway - app will work with empty data
 
 # For Vercel serverless
 handler = app
