@@ -7,6 +7,11 @@ import json
 from datetime import datetime
 from collections import defaultdict
 import logging
+import sys
+
+# Add parent directory to path to import firebase_db
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import firebase_db
 
 # suppress noisy pdfminer/pdfplumber warnings about invalid color tokens
 logging.getLogger('pdfminer').setLevel(logging.ERROR)
@@ -102,7 +107,7 @@ def load_recipes():
         print(f"Error loading recipes: {e}")
 
 def save_inventory_state():
-    """Save current inventory state to JSON file"""
+    """Save current inventory state to Firebase (with local file fallback)"""
     try:
         state = {
             'inventory': current_inventory,
@@ -110,22 +115,47 @@ def save_inventory_state():
             'sales_history': sales_history,
             'last_updated': datetime.now().isoformat()
         }
+
+        # Try to save to Firebase first
+        if firebase_db.is_firebase_configured():
+            success = firebase_db.save_inventory_state(state)
+            if success:
+                print("Inventory state saved to Firebase")
+                return
+            else:
+                print("Failed to save to Firebase, falling back to local file")
+
+        # Fallback to local file if Firebase not configured or fails
         with open(app.config['INVENTORY_STATE_FILE'], 'w') as f:
             json.dump(state, f, indent=2)
+        print("Inventory state saved to local file")
     except Exception as e:
         print(f"Error saving inventory state: {e}")
 
 def load_inventory_state():
-    """Load inventory state from JSON file"""
+    """Load inventory state from Firebase (with local file fallback)"""
     global current_inventory, invoice_history, sales_history
     try:
+        # Try to load from Firebase first
+        if firebase_db.is_firebase_configured():
+            state = firebase_db.load_inventory_state()
+            if state:
+                current_inventory = state.get('inventory', {})
+                invoice_history = state.get('invoice_history', [])
+                sales_history = state.get('sales_history', [])
+                print(f"Loaded inventory state from Firebase with {len(current_inventory)} items")
+                return
+            else:
+                print("No data in Firebase, checking local file...")
+
+        # Fallback to local file
         if os.path.exists(app.config['INVENTORY_STATE_FILE']):
             with open(app.config['INVENTORY_STATE_FILE'], 'r') as f:
                 state = json.load(f)
                 current_inventory = state.get('inventory', {})
                 invoice_history = state.get('invoice_history', [])
                 sales_history = state.get('sales_history', [])
-            print(f"Loaded inventory state with {len(current_inventory)} items")
+            print(f"Loaded inventory state from local file with {len(current_inventory)} items")
         else:
             print("No existing inventory state found, starting fresh")
     except Exception as e:
