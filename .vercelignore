@@ -11,3 +11,8 @@ uploads/
 .DS_Store
 test_setup.py
 start.sh
+
+# Firebase - service account should be in environment variables, not uploaded
+firebase-service-account.json
+firebase-credentials.json
+.env

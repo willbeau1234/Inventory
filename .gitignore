@@ -34,3 +34,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Firebase
+firebase-service-account.json
+firebase-credentials.json
+*firebase*.json
+!vercel.json
+.env
