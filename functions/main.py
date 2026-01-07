@@ -10,12 +10,11 @@ import logging
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
 
-# Import firebase_db and storage_helper from same directory
+# Import firebase_db from same directory
 import firebase_db
-import storage_helper
 
-# Initialize Firebase Admin SDK with Storage bucket
-initialize_app(options={'storageBucket': 'real-dq.appspot.com'})
+# Initialize Firebase Admin SDK
+initialize_app()
 
 # suppress noisy pdfminer/pdfplumber warnings about invalid color tokens
 logging.getLogger('pdfminer').setLevel(logging.ERROR)
@@ -313,53 +312,49 @@ def upload_file():
     for file in files:
         print(f"Processing file: {file.filename}")
         if file and file.filename.endswith('.pdf'):
-            # Upload to Firebase Storage
-            storage_path = storage_helper.upload_file(file, file.filename)
+            # Save to temp directory for processing
+            filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(filename)
+            print(f"Saved PDF to: {filename}")
 
-            if storage_path:
-                # Download to temp for processing
-                local_path = storage_helper.download_file_to_temp(storage_path)
-
-                if local_path and file_type == 'invoice':
-                    invoice_data = extract_invoice_data(local_path)
-                    if invoice_data['items']:
-                        added_items = process_invoice_to_inventory(invoice_data)
-                        invoice_history.append({
-                            'filename': file.filename,
-                            'storage_path': storage_path,
-                            'date': invoice_data.get('date', datetime.now().isoformat()),
-                            'items_added': len(added_items),
-                            'processed_at': datetime.now().isoformat()
-                        })
-                        processed += 1
-                        save_inventory_state()
+            if file_type == 'invoice':
+                invoice_data = extract_invoice_data(filename)
+                print(f"Extracted {len(invoice_data['items'])} items from invoice")
+                if invoice_data['items']:
+                    added_items = process_invoice_to_inventory(invoice_data)
+                    invoice_history.append({
+                        'filename': file.filename,
+                        'date': invoice_data.get('date', datetime.now().isoformat()),
+                        'items_added': len(added_items),
+                        'processed_at': datetime.now().isoformat()
+                    })
+                    processed += 1
+                    save_inventory_state()
 
         elif file and file.filename.endswith('.csv'):
-            # Upload to Firebase Storage
-            storage_path = storage_helper.upload_file(file, file.filename)
+            # Save to temp directory for processing
+            csv_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(csv_path)
+            print(f"Saved CSV to: {csv_path}")
 
-            if storage_path:
-                # Download to temp for processing
-                local_path = storage_helper.download_file_to_temp(storage_path)
+            if file_type == 'sales':
+                result = process_sales_data(csv_path)
+                print(f"Processed {result['processed']} sales items")
+                if result['processed'] > 0:
+                    sales_history.append({
+                        'filename': file.filename,
+                        'items_processed': result['processed'],
+                        'processed_at': datetime.now().isoformat()
+                    })
+                    processed += 1
+                    save_inventory_state()
 
-                if local_path:
-                    if file_type == 'sales':
-                        result = process_sales_data(local_path)
-                        if result['processed'] > 0:
-                            sales_history.append({
-                                'filename': file.filename,
-                                'storage_path': storage_path,
-                                'items_processed': result['processed'],
-                                'processed_at': datetime.now().isoformat()
-                            })
-                            processed += 1
-                            save_inventory_state()
-
-                    elif file_type == 'starting_inventory':
-                        result = process_starting_inventory(local_path)
-                        if result['processed'] > 0:
-                            processed += 1
-                            save_inventory_state()
+            elif file_type == 'starting_inventory':
+                result = process_starting_inventory(csv_path)
+                print(f"Processed {result['processed']} starting inventory items")
+                if result['processed'] > 0:
+                    processed += 1
+                    save_inventory_state()
 
     print(f"Upload complete. Processed: {processed}, Total items: {len(current_inventory)}")
     return jsonify({
@@ -379,24 +374,14 @@ def upload_sales():
     if not file.filename.endswith('.csv'):
         return jsonify({'error': 'Only CSV files are supported'}), 400
 
-    # Upload to Firebase Storage
-    storage_path = storage_helper.upload_file(file, file.filename)
+    csv_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(csv_path)
 
-    if not storage_path:
-        return jsonify({'error': 'Failed to upload file'}), 500
-
-    # Download to temp for processing
-    local_path = storage_helper.download_file_to_temp(storage_path)
-
-    if not local_path:
-        return jsonify({'error': 'Failed to process file'}), 500
-
-    result = process_sales_data(local_path)
+    result = process_sales_data(csv_path)
 
     if result['processed'] > 0:
         sales_history.append({
             'filename': file.filename,
-            'storage_path': storage_path,
             'items_processed': result['processed'],
             'processed_at': datetime.now().isoformat()
         })
@@ -526,19 +511,10 @@ def upload_starting_inventory():
     if not file.filename.endswith('.csv'):
         return jsonify({'error': 'Only CSV files are supported'}), 400
 
-    # Upload to Firebase Storage
-    storage_path = storage_helper.upload_file(file, file.filename)
+    csv_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(csv_path)
 
-    if not storage_path:
-        return jsonify({'error': 'Failed to upload file'}), 500
-
-    # Download to temp for processing
-    local_path = storage_helper.download_file_to_temp(storage_path)
-
-    if not local_path:
-        return jsonify({'error': 'Failed to process file'}), 500
-
-    result = process_starting_inventory(local_path)
+    result = process_starting_inventory(csv_path)
 
     if result['processed'] > 0:
         save_inventory_state()
