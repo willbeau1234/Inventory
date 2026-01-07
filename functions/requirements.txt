@@ -1,0 +1,5 @@
+Flask==3.1.2
+pdfplumber==0.11.8
+firebase-admin==6.6.0
+firebase-functions
+python-dotenv==1.0.1
