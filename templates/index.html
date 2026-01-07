@@ -444,14 +444,21 @@
         }
 
         function handleFiles(files, type, acceptType) {
-            selectedFiles = Array.from(files).filter(f => f.name.endsWith(acceptType));
+            // Case-insensitive file extension check
+            selectedFiles = Array.from(files).filter(f =>
+                f.name.toLowerCase().endsWith(acceptType.toLowerCase())
+            );
 
             if (selectedFiles.length > 0) {
                 document.getElementById('uploadBtn').disabled = false;
                 document.getElementById(`dropzone-${type}`).querySelector('.dropzone-text').textContent =
                     `${selectedFiles.length} file(s) selected`;
             } else {
-                showStatus(`Please select ${acceptType} files only`, 'error');
+                // More detailed error message
+                const fileList = Array.from(files).map(f => `"${f.name}"`).join(', ');
+                const tabName = type === 'invoices' ? 'Performance Food Invoices' :
+                               type === 'sales' ? 'PAR Sales Data' : 'Starting Inventory';
+                showStatus(`Please select ${acceptType.toUpperCase()} files only for ${tabName} tab. You selected: ${fileList}`, 'error');
             }
         }
 
@@ -497,7 +504,8 @@
                     document.getElementById('uploadBtn').disabled = false;
                 }
             } catch (error) {
-                showStatus('Error uploading files', 'error');
+                console.error('Upload error:', error);
+                showStatus(`Error uploading files: ${error.message}. Check browser console for details.`, 'error');
                 document.getElementById('uploadBtn').disabled = false;
             }
         });

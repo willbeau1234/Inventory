@@ -279,14 +279,21 @@ def process_invoice_to_inventory(invoice_data):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    print(f"Upload request received. Form data: {request.form}")
+    print(f"Files in request: {request.files}")
+
     if 'files[]' not in request.files:
+        print("Error: No files[] in request")
         return jsonify({'error': 'No files uploaded'}), 400
 
     files = request.files.getlist('files[]')
+    print(f"Number of files received: {len(files)}")
     processed = 0
     file_type = request.form.get('file_type', 'invoice')  # 'invoice', 'sales', or 'starting_inventory'
+    print(f"File type: {file_type}")
 
     for file in files:
+        print(f"Processing file: {file.filename}")
         if file and file.filename.endswith('.pdf'):
             filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
             file.save(filename)
@@ -327,6 +334,7 @@ def upload_file():
                     processed += 1
                     save_inventory_state()
 
+    print(f"Upload complete. Processed: {processed}, Total items: {len(current_inventory)}")
     return jsonify({
         'success': True,
         'processed': processed,
