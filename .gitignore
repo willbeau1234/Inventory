@@ -45,3 +45,4 @@ firebase-debug.*.log
 !.firebaserc
 !vercel.json
 .env
+DQ_Inventory/real-dq-firebase-adminsdk-fbsvc-*.json
